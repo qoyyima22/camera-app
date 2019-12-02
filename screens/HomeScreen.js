@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Text, View, TouchableOpacity } from "react-native";
+import { Text, View, TouchableOpacity, Modal, Picker } from "react-native";
 import { Camera } from "expo-camera";
 import * as Permissions from "expo-permissions";
 import * as FileSystem from "expo-file-system";
@@ -9,9 +9,14 @@ export default function HomeScreen() {
   const [hasPermission, setHasPermission] = useState(null);
   const [hasPermissionMedia, setHasPermissionMedia] = useState(null);
   const [hasPermissionVideo, setHasPermissionVideo] = useState(null);
+
   const [type, setType] = useState(Camera.Constants.Type.back);
+
   const [video, setVideo] = useState(false);
   const [recording, setRecording] = useState(false);
+
+  const [modalData, setModalData] = useState(null);
+  const [modalVisible, setModalVisible] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -39,8 +44,6 @@ export default function HomeScreen() {
   }, [video]);
 
   const onPictureSaved = async photo => {
-    console.log(FileSystem.documentDirectory, "INIIIIIIIIIIIIIIIIII");
-    console.log(photo.uri, "IUUUUUUUUUUUUUUUUUUUUUUUUUUUU");
     await FileSystem.moveAsync({
       from: photo.uri,
       to: `${FileSystem.documentDirectory}${Date.now()}.jpg`
@@ -48,22 +51,32 @@ export default function HomeScreen() {
 
     const asset = await MediaLibrary.createAssetAsync(photo.uri);
 
-    console.log(asset, "Ini aset");
     alert("Photo has successfully saved");
   };
 
   const takePhoto = async () => {
     if (this.camera) {
       let photo = await this.camera.takePictureAsync();
-      const asset = await MediaLibrary.createAssetAsync(photo.uri);
-
-      console.log(asset, "Ini aset");
-      alert("Photo has successfully saved");
+      let albums = await MediaLibrary.getAlbumsAsync();
+      console.log(albums, "ni albums");
+      await setModalData({ uri: photo.uri, albums });
+      await setModalVisible(true);
+      // const asset = await MediaLibrary.createAssetAsync(photo.uri);
+      // alert("Photo has successfully saved");
     }
   };
   const startRecording = () => {};
   const stopRecording = () => {};
 
+  if (modalVisible) {
+    return (
+      <ModalCustom
+        modalData={modalData}
+        visible={modalVisible}
+        close={() => setModalVisible(false)}
+      />
+    );
+  }
   if (!video && hasPermission === null) {
     return <View />;
   }
@@ -153,3 +166,29 @@ export default function HomeScreen() {
     </View>
   );
 }
+
+const ModalCustom = ({ visible, modalData, close }) => {
+  console.log(modalData, "iniModalDaraaaaaaaaaaaa");
+  const [album, setAlbum] = useState("");
+
+  return (
+    <View style={{ marginTop: 22 }}>
+      <Modal animationType="slide" visible={visible}>
+        <Text>Cuuuuk</Text>
+        <Picker
+          style={{ height: 50, width: 300 }}
+          onValueChange={(itemValue, itemIndex) => setAlbum(itemValue)}
+        >
+          {modalData &&
+            modalData.albums &&
+            modalData.albums.map((el, index) => (
+              <Picker.Item label={el.title} key={index} value={el.id} />
+            ))}
+        </Picker>
+        <TouchableOpacity onPress={close}>
+          <Text>close</Text>
+        </TouchableOpacity>
+      </Modal>
+    </View>
+  );
+};
