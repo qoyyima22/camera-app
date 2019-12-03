@@ -1,11 +1,20 @@
 import React, { useState, useEffect } from "react";
-import { Text, View, TouchableOpacity, Modal, Picker } from "react-native";
+import {
+  Text,
+  View,
+  TouchableOpacity,
+  Modal,
+  Picker,
+  TextInput,
+  Button
+} from "react-native";
 import { Camera } from "expo-camera";
 import * as Permissions from "expo-permissions";
 import * as FileSystem from "expo-file-system";
 import * as MediaLibrary from "expo-media-library";
+import { withNavigationFocus } from "react-navigation";
 
-export default function HomeScreen() {
+function HomeScreen(props) {
   const [hasPermission, setHasPermission] = useState(null);
   const [hasPermissionMedia, setHasPermissionMedia] = useState(null);
   const [hasPermissionVideo, setHasPermissionVideo] = useState(null);
@@ -58,10 +67,9 @@ export default function HomeScreen() {
     if (this.camera) {
       let photo = await this.camera.takePictureAsync();
       let albums = await MediaLibrary.getAlbumsAsync();
-      console.log(albums, "ni albums");
-      await setModalData({ uri: photo.uri, albums });
-      await setModalVisible(true);
-      // const asset = await MediaLibrary.createAssetAsync(photo.uri);
+      const asset = await MediaLibrary.createAssetAsync(photo.uri);
+      setModalData({ asset, albums });
+      setModalVisible(true);
       // alert("Photo has successfully saved");
     }
   };
@@ -94,101 +102,175 @@ export default function HomeScreen() {
   }
   return (
     <View style={{ flex: 1 }}>
-      <Camera
-        style={{ flex: 1 }}
-        type={type}
-        ref={ref => {
-          this.camera = ref;
-        }}
-      >
-        <View
-          style={{
-            flex: 1,
-            backgroundColor: "transparent",
-            flexDirection: "row"
+      {props && props.isFocused && (
+        <Camera
+          style={{ flex: 1 }}
+          type={type}
+          ref={ref => {
+            this.camera = ref;
           }}
         >
-          <TouchableOpacity
+          <View
             style={{
-              flex: 0.1,
-              alignSelf: "flex-end",
-              alignItems: "center"
-            }}
-            onPress={() => {
-              setType(
-                type === Camera.Constants.Type.back
-                  ? Camera.Constants.Type.front
-                  : Camera.Constants.Type.back
-              );
+              flex: 1,
+              backgroundColor: "transparent",
+              flexDirection: "row"
             }}
           >
-            <Text style={{ fontSize: 18, marginBottom: 10, color: "white" }}>
-              {" "}
-              Flip{" "}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={{
-              flex: 0.8,
-              alignSelf: "flex-end",
-              alignItems: "center"
-            }}
-            onPress={() => {
-              !video
-                ? takePhoto()
-                : !recording
-                ? startRecording()
-                : stopRecording();
-            }}
-          >
-            <Text style={{ fontSize: 18, marginBottom: 10, color: "white" }}>
-              {" "}
-              {video ? "Start" : "Shoot"}{" "}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={{
-              flex: 0.15,
-              alignSelf: "flex-end",
-              alignItems: "center"
-            }}
-            onPress={() => {
-              video ? setVideo(false) : setVideo(true);
-            }}
-          >
-            <Text style={{ fontSize: 18, marginBottom: 10, color: "white" }}>
-              {" "}
-              {video ? "Photo" : "Video"}{" "}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </Camera>
+            <TouchableOpacity
+              style={{
+                flex: 0.1,
+                alignSelf: "flex-end",
+                alignItems: "center"
+              }}
+              onPress={() => {
+                setType(
+                  type === Camera.Constants.Type.back
+                    ? Camera.Constants.Type.front
+                    : Camera.Constants.Type.back
+                );
+              }}
+            >
+              <Text style={{ fontSize: 18, marginBottom: 10, color: "white" }}>
+                {" "}
+                Flip{" "}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={{
+                flex: 0.8,
+                alignSelf: "flex-end",
+                alignItems: "center"
+              }}
+              onPress={() => {
+                !video
+                  ? takePhoto()
+                  : !recording
+                  ? startRecording()
+                  : stopRecording();
+              }}
+            >
+              <Text style={{ fontSize: 18, marginBottom: 10, color: "white" }}>
+                {" "}
+                {video ? "Start" : "Shoot"}{" "}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={{
+                flex: 0.15,
+                alignSelf: "flex-end",
+                alignItems: "center"
+              }}
+              onPress={() => {
+                video ? setVideo(false) : setVideo(true);
+              }}
+            >
+              <Text style={{ fontSize: 18, marginBottom: 10, color: "white" }}>
+                {" "}
+                {video ? "Photo" : "Video"}{" "}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </Camera>
+      )}
     </View>
   );
 }
 
 const ModalCustom = ({ visible, modalData, close }) => {
-  console.log(modalData, "iniModalDaraaaaaaaaaaaa");
   const [album, setAlbum] = useState("");
+  const [newAlbum, setNewAlbum] = useState(false);
+  const [titleNewAlbum, setTitleNewAlbum] = useState("");
+
+  React.useEffect(() => {
+    modalData &&
+      modalData.albums &&
+      modalData.albums[0] &&
+      setAlbum(modalData.albums[0].id);
+  }, []);
+
+  React.useEffect(() => {
+    if (titleNewAlbum) {
+      setNewAlbum(true);
+    } else {
+      setNewAlbum(false);
+    }
+  }, [titleNewAlbum]);
+
+  const onPressSubmit = async () => {
+    if (newAlbum) {
+      MediaLibrary.createAlbumAsync(titleNewAlbum, modalData.asset, false)
+        .then(() => {
+          alert(`Asset has successfully saved into new album!`);
+          close();
+        })
+        .catch(err => {
+          alert("Some error occurred. Sorry!");
+        });
+    } else {
+      MediaLibrary.addAssetsToAlbumAsync(modalData.asset, album, false)
+        .then(() => {
+          alert(`Asset has successfully saved into existing album!`);
+          close();
+        })
+        .catch(err => {
+          alert("cannot save to this album!");
+        });
+    }
+  };
 
   return (
     <View style={{ marginTop: 22 }}>
       <Modal animationType="slide" visible={visible}>
-        <Text>Cuuuuk</Text>
-        <Picker
-          style={{ height: 50, width: 300 }}
-          onValueChange={(itemValue, itemIndex) => setAlbum(itemValue)}
+        <View
+          style={{
+            flex: 1,
+            justifyContent: "center",
+            marginHorizontal: 40
+          }}
         >
-          {modalData &&
-            modalData.albums &&
-            modalData.albums.map((el, index) => (
-              <Picker.Item label={el.title} key={index} value={el.id} />
-            ))}
-        </Picker>
-        <TouchableOpacity onPress={close}>
-          <Text>close</Text>
-        </TouchableOpacity>
+          <View>
+            <Text>Save your photo/video in existing album</Text>
+            <Picker
+              style={{ height: 50, width: 300 }}
+              onValueChange={(itemValue, itemIndex) => setAlbum(itemValue)}
+              enabled={!newAlbum}
+              selectedValue={album}
+              // prompt="choose one"
+            >
+              {modalData &&
+                modalData.albums &&
+                modalData.albums.map((el, index) => (
+                  <Picker.Item label={el.title} key={index} value={el.id} />
+                ))}
+            </Picker>
+          </View>
+          <View>
+            <Text>Or create new album!</Text>
+            <View style={{ marginVertical: 10 }}>
+              <TextInput
+                onChangeText={text => setTitleNewAlbum(text)}
+                value={titleNewAlbum}
+                style={{
+                  borderColor: "black",
+                  borderWidth: 1,
+                  borderStyle: "solid"
+                }}
+              />
+            </View>
+          </View>
+          <View>
+            <View style={{ marginBottom: 10 }}>
+              <Button onPress={onPressSubmit} title={"Save!"} />
+            </View>
+            <View>
+              <Button onPress={close} title={"Close"} color="red" />
+            </View>
+          </View>
+        </View>
       </Modal>
     </View>
   );
 };
+
+export default withNavigationFocus(HomeScreen);
